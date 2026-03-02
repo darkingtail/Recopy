@@ -43,9 +43,6 @@ pub fn run() {
             show_main_window(app);
         }));
 
-    // Register NSPanel plugin on macOS (no-op on other platforms)
-    let builder = platform::apply_plugin(builder);
-
     // Register updater + process plugins (gated behind self-update feature for App Store compat)
     #[cfg(feature = "self-update")]
     let builder = builder
@@ -98,6 +95,10 @@ pub fn run() {
             app.manage(db::models::PreviewClosing(
                 std::sync::atomic::AtomicBool::new(false),
             ));
+
+            // Initialize NSPanel store (must be before init_platform which stores panels)
+            #[cfg(target_os = "macos")]
+            app.manage(platform::nspanel::PanelStore::new());
 
             // Initialize platform (convert window to NSPanel on macOS)
             platform::init_platform(app)?;

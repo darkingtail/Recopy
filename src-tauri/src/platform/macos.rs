@@ -1,41 +1,8 @@
-// The tauri_panel! macro generates `-> ()` signatures that trigger clippy::unused_unit.
-#![allow(clippy::unused_unit)]
-
 use tauri::{Emitter, Manager};
-use tauri_nspanel::{
-    tauri_panel, CollectionBehavior, ManagerExt, PanelLevel, StyleMask, WebviewWindowExt,
+
+use super::nspanel::{
+    self, CollectionBehavior, EventHandler, PanelExt, PanelLevel, PanelType, StyleMask,
 };
-
-// Define custom NSPanel classes.
-// RecopyPanel: non-activating, can receive keyboard events (main window + HUD).
-// PreviewPanel: non-activating, does NOT become key (won't steal focus from main panel).
-tauri_panel! {
-    panel!(RecopyPanel {
-        config: {
-            is_floating_panel: true,
-            can_become_key_window: true,
-            can_become_main_window: false,
-        }
-    })
-
-    panel!(PreviewPanel {
-        config: {
-            is_floating_panel: true,
-            can_become_key_window: false,
-            can_become_main_window: false,
-        }
-    })
-
-    panel_event!(RecopyPanelEventHandler {
-        window_did_become_key(notification: &NSNotification) -> (),
-        window_did_resign_key(notification: &NSNotification) -> (),
-    })
-}
-
-/// Register the tauri-nspanel plugin on the builder (must happen before .setup())
-pub fn apply_plugin(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
-    builder.plugin(tauri_nspanel::init())
-}
 
 /// Convert the main window to NSPanel and configure it.
 /// Must be called in the setup closure after the window is created.
@@ -44,8 +11,21 @@ pub fn init_platform(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>>
         .get_webview_window("main")
         .ok_or("Main window not found")?;
 
+    // Set up event handler to forward focus/blur as Tauri events
+    let handler = EventHandler::new();
+
+    let app_handle = app.handle().clone();
+    handler.set_on_become_key(move || {
+        let _ = app_handle.emit("tauri://focus", ());
+    });
+
+    let app_handle = app.handle().clone();
+    handler.set_on_resign_key(move || {
+        let _ = app_handle.emit("tauri://blur", ());
+    });
+
     // Convert the Tauri window to our custom NSPanel
-    let panel = window.to_panel::<RecopyPanel>()?;
+    let panel = nspanel::convert_to_panel(app.handle(), &window, PanelType::Recopy, Some(handler))?;
 
     // Float above Dock (level 20), use MainMenu level (24)
     panel.set_level(PanelLevel::MainMenu.value());
@@ -72,28 +52,13 @@ pub fn init_platform(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>>
     // We control hiding via blur events, not via app deactivation
     panel.set_hides_on_deactivate(false);
 
-    // Set up event handler to forward focus/blur as Tauri events
-    let handler = RecopyPanelEventHandler::new();
-
-    let app_handle = app.handle().clone();
-    handler.window_did_become_key(move |_notification| {
-        let _ = app_handle.emit("tauri://focus", ());
-    });
-
-    let app_handle = app.handle().clone();
-    handler.window_did_resign_key(move |_notification| {
-        let _ = app_handle.emit("tauri://blur", ());
-    });
-
-    panel.set_event_handler(Some(handler.as_ref()));
-
     log::info!("NSPanel initialized for main window");
     Ok(())
 }
 
 /// Show the panel and make it key window.
 pub fn platform_show_window(app: &tauri::AppHandle) {
-    if let Ok(panel) = app.get_webview_panel("main") {
+    if let Ok(panel) = app.get_panel("main") {
         // When showing: join all spaces so panel appears on current Space
         panel.set_collection_behavior(
             CollectionBehavior::new()
@@ -113,7 +78,7 @@ pub fn platform_show_window(app: &tauri::AppHandle) {
 pub fn platform_hide_window(app: &tauri::AppHandle) {
     let app_inner = app.clone();
     let _ = app.run_on_main_thread(move || {
-        if let Ok(panel) = app_inner.get_webview_panel("main") {
+        if let Ok(panel) = app_inner.get_panel("main") {
             panel.hide();
 
             // When hidden: move to active space for next show
@@ -131,7 +96,7 @@ pub fn platform_hide_window(app: &tauri::AppHandle) {
 
 /// Check if the panel is currently visible.
 pub fn platform_is_visible(app: &tauri::AppHandle) -> bool {
-    app.get_webview_panel("main")
+    app.get_panel("main")
         .map(|panel| panel.is_visible())
         .unwrap_or(false)
 }
@@ -143,7 +108,7 @@ pub fn init_hud_panel(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>
         return Ok(());
     };
 
-    let panel = window.to_panel::<RecopyPanel>()?;
+    let panel = nspanel::convert_to_panel(app.handle(), &window, PanelType::Recopy, None)?;
 
     // Float above the main panel
     panel.set_level(PanelLevel::MainMenu.value() + 1);
@@ -168,7 +133,7 @@ pub fn init_hud_panel(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>
 
 /// Show the HUD panel without making it key (non-focus-stealing).
 pub fn platform_show_hud(app: &tauri::AppHandle) {
-    if let Ok(panel) = app.get_webview_panel("hud") {
+    if let Ok(panel) = app.get_panel("hud") {
         panel.show();
     }
 }
@@ -177,7 +142,7 @@ pub fn platform_show_hud(app: &tauri::AppHandle) {
 pub fn platform_hide_hud(app: &tauri::AppHandle) {
     let app_inner = app.clone();
     let _ = app.run_on_main_thread(move || {
-        if let Ok(panel) = app_inner.get_webview_panel("hud") {
+        if let Ok(panel) = app_inner.get_panel("hud") {
             panel.hide();
         }
     });
@@ -190,7 +155,7 @@ pub fn init_preview_panel(app: &tauri::App) -> Result<(), Box<dyn std::error::Er
         return Ok(());
     };
 
-    let panel = window.to_panel::<PreviewPanel>()?;
+    let panel = nspanel::convert_to_panel(app.handle(), &window, PanelType::Preview, None)?;
 
     // Float above the main panel
     panel.set_level(PanelLevel::MainMenu.value() + 1);
@@ -218,7 +183,7 @@ pub fn init_preview_panel(app: &tauri::App) -> Result<(), Box<dyn std::error::Er
 pub fn platform_show_preview(app: &tauri::AppHandle) {
     let app_inner = app.clone();
     let _ = app.run_on_main_thread(move || {
-        if let Ok(panel) = app_inner.get_webview_panel("preview") {
+        if let Ok(panel) = app_inner.get_panel("preview") {
             panel.show();
         }
     });
@@ -228,7 +193,7 @@ pub fn platform_show_preview(app: &tauri::AppHandle) {
 pub fn platform_hide_preview(app: &tauri::AppHandle) {
     let app_inner = app.clone();
     let _ = app.run_on_main_thread(move || {
-        if let Ok(panel) = app_inner.get_webview_panel("preview") {
+        if let Ok(panel) = app_inner.get_panel("preview") {
             panel.hide();
         }
     });
@@ -273,7 +238,7 @@ pub fn platform_resign_before_paste(app: &tauri::AppHandle) {
     let (tx, rx) = std::sync::mpsc::sync_channel::<()>(0);
     let app_inner = app.clone();
     let _ = app.run_on_main_thread(move || {
-        if let Ok(panel) = app_inner.get_webview_panel("main") {
+        if let Ok(panel) = app_inner.get_panel("main") {
             panel.resign_key_window();
         }
         let _ = tx.send(());
