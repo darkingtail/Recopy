@@ -403,7 +403,24 @@ async fn search_items_like(
         )
     };
 
-    let mut q = sqlx::query_as::<_, (String, String, String, Option<String>, Option<String>, Option<String>, String, String, i64, String, bool, String, String)>(&sql);
+    let mut q = sqlx::query_as::<
+        _,
+        (
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            String,
+            String,
+            i64,
+            String,
+            bool,
+            String,
+            String,
+        ),
+    >(&sql);
 
     // Bind each token's pattern 3 times (for plain_text, file_name, source_app_name)
     for pattern in &binds {

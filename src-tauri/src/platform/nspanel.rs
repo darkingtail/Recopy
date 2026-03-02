@@ -321,8 +321,7 @@ pub(crate) fn convert_to_panel(
 
     // Retain the pointer as NSPanel (safe because our subclasses inherit from NSPanel)
     let ns_panel: Retained<NSPanel> = unsafe {
-        Retained::retain(ns_window_ptr as *mut NSPanel)
-            .ok_or("Failed to retain NSPanel pointer")?
+        Retained::retain(ns_window_ptr as *mut NSPanel).ok_or("Failed to retain NSPanel pointer")?
     };
 
     // Set the delegate if an event handler was provided

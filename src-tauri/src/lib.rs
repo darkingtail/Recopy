@@ -140,23 +140,33 @@ pub fn run() {
                     None => return,
                 };
                 let policy = db::queries::get_setting(&pool.0, "retention_policy")
-                    .await.ok().flatten()
+                    .await
+                    .ok()
+                    .flatten()
                     .unwrap_or_else(|| "unlimited".to_string());
 
-                if policy == "unlimited" { return; }
+                if policy == "unlimited" {
+                    return;
+                }
 
                 let days = db::queries::get_setting(&pool.0, "retention_days")
-                    .await.ok().flatten()
+                    .await
+                    .ok()
+                    .flatten()
                     .and_then(|v| v.parse::<i64>().ok())
                     .unwrap_or(30);
                 let count = db::queries::get_setting(&pool.0, "retention_count")
-                    .await.ok().flatten()
+                    .await
+                    .ok()
+                    .flatten()
                     .and_then(|v| v.parse::<i64>().ok())
                     .unwrap_or(1000);
 
                 // Collect image paths before deleting rows
-                let image_paths = db::queries::get_retention_overflow_image_paths(&pool.0, &policy, days, count)
-                    .await.unwrap_or_default();
+                let image_paths =
+                    db::queries::get_retention_overflow_image_paths(&pool.0, &policy, days, count)
+                        .await
+                        .unwrap_or_default();
 
                 match db::queries::cleanup_by_retention(&pool.0, &policy, days, count).await {
                     Ok(deleted) if deleted > 0 => {
