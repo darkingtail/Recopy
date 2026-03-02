@@ -86,7 +86,8 @@
       "clearDesc": "Delete all items except favorites",
       "confirmClear": "Confirm Clear",
       "cleared": "Cleared {{count}} items",
-      "clearAll": "Clear All"
+      "clearAll": "Clear All",
+      "retentionHint": "Cleanup runs on next app launch"
     },
     "privacy": {
       "title": "Privacy",

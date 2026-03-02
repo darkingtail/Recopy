@@ -245,6 +245,10 @@ function HistorySettings({
         </SettingRow>
       )}
 
+      {settings.retention_policy !== "unlimited" && (
+        <p className="text-xs text-muted-foreground/70">{t("settings.history.retentionHint")}</p>
+      )}
+
       <SettingRow
         label={t("settings.history.maxSize")}
         description={t("settings.history.maxSizeDesc")}

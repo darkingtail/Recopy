@@ -86,7 +86,8 @@
       "clearDesc": "删除所有非收藏的条目",
       "confirmClear": "确认清空",
       "cleared": "已清空 {{count}} 条",
-      "clearAll": "清空全部"
+      "clearAll": "清空全部",
+      "retentionHint": "清理将在下次启动时执行"
     },
     "privacy": {
       "title": "隐私",
