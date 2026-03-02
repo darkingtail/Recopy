@@ -1,3 +1,4 @@
+use objc2::MainThreadMarker;
 use tauri::{Emitter, Manager};
 
 use super::nspanel::{
@@ -57,20 +58,24 @@ pub fn init_platform(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>>
 }
 
 /// Show the panel and make it key window.
+/// Safe to call from any thread — dispatches to main thread.
 pub fn platform_show_window(app: &tauri::AppHandle) {
-    if let Ok(panel) = app.get_panel("main") {
-        // When showing: join all spaces so panel appears on current Space
-        panel.set_collection_behavior(
-            CollectionBehavior::new()
-                .can_join_all_spaces()
-                .stationary()
-                .full_screen_auxiliary()
-                .ignores_cycle()
-                .into(),
-        );
+    let app_inner = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let Ok(panel) = app_inner.get_panel("main") {
+            // When showing: join all spaces so panel appears on current Space
+            panel.set_collection_behavior(
+                CollectionBehavior::new()
+                    .can_join_all_spaces()
+                    .stationary()
+                    .full_screen_auxiliary()
+                    .ignores_cycle()
+                    .into(),
+            );
 
-        panel.show_and_make_key();
-    }
+            panel.show_and_make_key();
+        }
+    });
 }
 
 /// Hide the panel.
@@ -95,10 +100,26 @@ pub fn platform_hide_window(app: &tauri::AppHandle) {
 }
 
 /// Check if the panel is currently visible.
+/// Safe to call from any thread — dispatches to main thread if needed.
 pub fn platform_is_visible(app: &tauri::AppHandle) -> bool {
-    app.get_panel("main")
-        .map(|panel| panel.is_visible())
-        .unwrap_or(false)
+    // Fast path: already on main thread, call directly (avoids sync_channel deadlock)
+    if MainThreadMarker::new().is_some() {
+        return app
+            .get_panel("main")
+            .map(|panel| panel.is_visible())
+            .unwrap_or(false);
+    }
+    // Off main thread: dispatch synchronously
+    let (tx, rx) = std::sync::mpsc::sync_channel(1);
+    let app_inner = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let visible = app_inner
+            .get_panel("main")
+            .map(|panel| panel.is_visible())
+            .unwrap_or(false);
+        let _ = tx.send(visible);
+    });
+    rx.recv().unwrap_or(false)
 }
 
 /// Initialize the HUD window as NSPanel (non-activating).
@@ -132,10 +153,14 @@ pub fn init_hud_panel(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>
 }
 
 /// Show the HUD panel without making it key (non-focus-stealing).
+/// Safe to call from any thread — dispatches to main thread.
 pub fn platform_show_hud(app: &tauri::AppHandle) {
-    if let Ok(panel) = app.get_panel("hud") {
-        panel.show();
-    }
+    let app_inner = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let Ok(panel) = app_inner.get_panel("hud") {
+            panel.show();
+        }
+    });
 }
 
 /// Hide the HUD panel.
