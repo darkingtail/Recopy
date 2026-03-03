@@ -249,7 +249,9 @@ pub fn show_main_window(app: &tauri::AppHandle) {
 }
 
 /// Hide the main window and close preview if open.
+/// Emits "recopy-hide" so the frontend can reset its visual state for the next show.
 pub fn hide_main_window(app: &tauri::AppHandle) {
+    let _ = app.emit("recopy-hide", ());
     platform::platform_hide_window(app);
     platform::platform_hide_preview(app);
 }

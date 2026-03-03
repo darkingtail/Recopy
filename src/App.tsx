@@ -84,7 +84,7 @@ function MainApp() {
     };
   }, [refreshOnChange]);
 
-  // Reset panel visual state when hidden (blur) so next show starts clean.
+  // Dismiss context menus on blur (always needed regardless of close_on_blur setting).
   // Use window-scoped listener so other windows (settings) don't trigger this.
   useEffect(() => {
     const currentWindow = getCurrentWebviewWindow();
@@ -96,6 +96,17 @@ function MainApp() {
         el.style.visibility = "hidden";
       });
       document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
+
+  // Reset panel visual state when the backend decides to hide the window.
+  // This is driven by the "recopy-hide" event from Rust (emitted by hide_main_window),
+  // NOT by blur — so close_on_blur=false correctly keeps content visible.
+  useEffect(() => {
+    const unlisten = listen("recopy-hide", () => {
       const el = panelRef.current;
       if (el) {
         el.classList.remove("panel-enter");

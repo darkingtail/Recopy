@@ -140,8 +140,8 @@ pub async fn paste_clipboard_item(
         // Resign keyboard focus so the previous app receives the Cmd+V
         crate::platform::platform_resign_before_paste(&app);
         simulate_paste();
-        // Now hide the panel
-        crate::platform::platform_hide_window(&app);
+        // Now hide the panel (via hide_main_window to emit recopy-hide event)
+        crate::hide_main_window(&app);
     }
 
     Ok(())
@@ -171,8 +171,8 @@ pub async fn paste_as_plain_text(
     // Resign keyboard focus so the previous app receives the Cmd+V
     crate::platform::platform_resign_before_paste(&app);
     simulate_paste();
-    // Now hide the panel
-    crate::platform::platform_hide_window(&app);
+    // Now hide the panel (via hide_main_window to emit recopy-hide event)
+    crate::hide_main_window(&app);
     Ok(())
 }
 
@@ -811,14 +811,14 @@ pub async fn read_file_preview(
 /// Hide the main window (works with NSPanel on macOS).
 #[tauri::command]
 pub fn hide_window(app: AppHandle) {
-    crate::platform::platform_hide_window(&app);
+    crate::hide_main_window(&app);
 }
 
 /// Show copy HUD: hide main window, display a centered HUD briefly.
 #[tauri::command]
 pub fn show_copy_hud(app: AppHandle) {
-    // Hide main window first
-    crate::platform::platform_hide_window(&app);
+    // Hide main window first (via hide_main_window to emit recopy-hide event)
+    crate::hide_main_window(&app);
 
     // Position HUD at screen center
     if let Some(hud) = app.get_webview_window("hud") {
