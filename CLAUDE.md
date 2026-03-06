@@ -47,9 +47,9 @@ Tauri v2 desktop app: **React 19 frontend** communicating with **Rust backend** 
 
 | Module | Purpose |
 |--------|---------|
-| `App.tsx` | Router: main panel / settings (`?page=settings`) / HUD (`?page=hud`). Panel animation state machine |
-| `stores/` | Zustand stores — `clipboard-store` (items, search, filters), `settings-store` (theme, language, shortcut, retention), `toast-store` |
-| `components/` | UI: ClipboardList, SearchBar, TypeFilter, ViewTabs, TextCard/ImageCard/FileCard/RichTextCard, ItemContextMenu, SettingsPage, CopyHud |
+| `App.tsx` | Router: main panel / settings (`?page=settings`) / HUD (`?page=hud`) / preview (`?page=preview`). Panel animation state machine |
+| `stores/` | Zustand stores — `clipboard-store` (items, search, filters), `settings-store` (theme, language, shortcut, retention, panel_position), `toast-store`, `update-store` |
+| `components/` | UI: ClipboardList, ClipboardCard, SearchBar, TypeFilter, ViewTabs, TextCard/ImageCard/FileCard/RichTextCard/LinkCard, ItemContextMenu, SettingsPage, PreviewPage, CopyHud, UpdateBanner |
 | `hooks/useKeyboardNav.ts` | Arrow keys (group-aware ↑↓), Enter (paste), Cmd+C (copy), Cmd+F (search), Cmd+, (settings), Escape (hide) |
 | `hooks/useThumbnail.ts` | Lazy-load thumbnails on demand from backend |
 | `lib/paste.ts` | `pasteItem()` / `copyToClipboard()` — invokes Rust paste commands |
@@ -59,8 +59,9 @@ Tauri v2 desktop app: **React 19 frontend** communicating with **Rust backend** 
 
 | Window | Size | Behavior |
 |--------|------|----------|
-| Main panel | Full-width × 380px, bottom of screen | NSPanel, non-activating, always-on-top, blur-to-hide (configurable) |
-| Settings | 640×520 (min 540×400), centered | Resizable. Re-registers global shortcut on close |
+| Main panel | Configurable position: bottom/top (full-width × 380px), left/right (380px × full-height) | NSPanel, non-activating, always-on-top, blur-to-hide (configurable), resizable in top/bottom modes |
+| Settings | 720×560 (min 600×440), centered | Resizable. Re-registers global shortcut on close |
+| Preview | 600×480, adjacent to main panel | Non-activating NSPanel, Quick Look for clipboard items |
 | HUD | 140×140, centered | Non-activating NSPanel, 800ms auto-hide, copy feedback |
 
 ### Paste Flow (critical path)
@@ -78,7 +79,7 @@ The main window is converted to NSPanel for non-activating floating behavior. **
 ### Data Model
 
 ```
-ClipboardItem: id (UUID), content_type (plain_text|rich_text|image|file),
+ClipboardItem: id (UUID), content_type (plain_text|rich_text|image|file|link),
   plain_text, rich_content?, thumbnail? (binary), image_path? (original file),
   file_path?, file_name?, source_app, source_app_name,
   content_size, content_hash (SHA-256), is_favorited, created_at, updated_at
@@ -104,6 +105,8 @@ Persisted to SQLite `settings` table. Frontend manages via `settings-store.ts`, 
 | Retention days | `retention_days` | `30` | When policy = days |
 | Retention count | `retention_count` | `1000` | When policy = count |
 | Max item size | `max_item_size_mb` | `10` | 1–100 MB |
+| Update check | `update_check_interval` | `weekly` | startup / daily / weekly / monthly / never |
+| Panel position | `panel_position` | `bottom` | bottom / top / left / right |
 
 ### Theme System
 
