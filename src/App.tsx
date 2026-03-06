@@ -168,25 +168,24 @@ function MainApp() {
         {/* Header */}
         {isVertical ? (
           <div className="shrink-0 px-3 pt-2 pb-1 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <BrandLogo />
-                <span className="translate-y-px">
-                  <UpdateBanner />
-                </span>
-              </div>
+            <div className="flex items-center">
+              <BrandLogo />
+              <span className="translate-y-px ml-1">
+                <UpdateBanner />
+              </span>
+              <div className="flex-1" />
+              <ViewTabs />
               <Button
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => invoke("open_settings_window")}
-                className="text-muted-foreground hover:text-foreground hover:bg-overlay"
+                className="ml-1 text-muted-foreground hover:text-foreground hover:bg-overlay"
               >
                 <Settings size={16} />
               </Button>
             </div>
-            <ViewTabs />
-            <TypeFilter />
             <SearchBar />
+            <TypeFilter iconOnly />
           </div>
         ) : (
           <div className="relative flex items-center justify-center gap-3 px-4 pt-3 pb-2 shrink-0">
