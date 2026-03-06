@@ -339,7 +339,7 @@ pub fn show_preview_window_impl(
         "right" => "right center",
         _ => "center bottom",
     };
-    let _ = window.eval(&format!(
+    let _ = window.eval(format!(
         "document.documentElement.style.setProperty('--preview-origin','{}')",
         origin
     ));

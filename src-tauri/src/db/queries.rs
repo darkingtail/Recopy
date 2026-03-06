@@ -888,22 +888,24 @@ mod tests {
         }
 
         // FTS search (>= 3 chars)
-        let results = search_items(&pool, "World", None, 10).await.unwrap();
+        let results = search_items(&pool, "World", None, 10, false).await.unwrap();
         assert_eq!(results.len(), 1);
         assert!(results[0].plain_text.contains("World"));
 
         // Chinese search (>= 3 chars for trigram)
-        let results = search_items(&pool, "中文搜", None, 10).await.unwrap();
+        let results = search_items(&pool, "中文搜", None, 10, false)
+            .await
+            .unwrap();
         assert_eq!(results.len(), 1);
         assert!(results[0].plain_text.contains("中文"));
 
         // Short query fallback to LIKE
-        let results = search_items(&pool, "Ru", None, 10).await.unwrap();
+        let results = search_items(&pool, "Ru", None, 10, false).await.unwrap();
         assert_eq!(results.len(), 1);
         assert!(results[0].plain_text.contains("Rust"));
 
         // Type filter
-        let results = search_items(&pool, "World", Some("image"), 10)
+        let results = search_items(&pool, "World", Some("image"), 10, false)
             .await
             .unwrap();
         assert_eq!(results.len(), 0);
