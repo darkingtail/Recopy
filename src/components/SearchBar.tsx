@@ -12,8 +12,12 @@ export function SearchBar() {
   const setSearchQuery = useClipboardStore((s) => s.setSearchQuery);
   const searchItems = useClipboardStore((s) => s.searchItems);
   const fetchItems = useClipboardStore((s) => s.fetchItems);
+  const fetchFavorites = useClipboardStore((s) => s.fetchFavorites);
+  const viewMode = useClipboardStore((s) => s.viewMode);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const composingRef = useRef(false);
+
+  const fetchDefault = viewMode === "pins" ? fetchFavorites : fetchItems;
 
   const triggerSearch = (value: string) => {
     clearTimeout(debounceRef.current);
@@ -21,7 +25,7 @@ export function SearchBar() {
       if (value.trim()) {
         searchItems(value.trim());
       } else {
-        fetchItems();
+        fetchDefault();
       }
     }, 150);
   };
@@ -35,7 +39,7 @@ export function SearchBar() {
 
   const handleClear = () => {
     setSearchQuery("");
-    fetchItems();
+    fetchDefault();
     inputRef.current?.focus();
   };
 

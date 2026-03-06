@@ -276,16 +276,17 @@ pub async fn search_items(
     query: &str,
     content_type: Option<&str>,
     limit: i64,
+    favorites_only: bool,
 ) -> Result<Vec<ClipboardItem>, sqlx::Error> {
     // Multi-token query: always use LIKE with AND matching
     let tokens: Vec<&str> = query.split_whitespace().collect();
     if tokens.len() > 1 {
-        return search_items_like(pool, query, content_type, limit).await;
+        return search_items_like(pool, query, content_type, limit, favorites_only).await;
     }
 
     // Single token: FTS5 for >= 3 chars, LIKE for < 3
     if query.chars().count() < 3 {
-        return search_items_like(pool, query, content_type, limit).await;
+        return search_items_like(pool, query, content_type, limit, favorites_only).await;
     }
 
     let fts_query = format!("\"{}\"", query.replace('"', "\"\""));
@@ -304,17 +305,22 @@ pub async fn search_items(
     let ids: Vec<String> = item_ids.into_iter().map(|r| r.0).collect();
     let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
 
+    let fav_filter = if favorites_only {
+        " AND is_favorited = 1"
+    } else {
+        ""
+    };
     let sql = if content_type.is_some() {
         format!(
             "SELECT id, content_type, plain_text, image_path, file_path, file_name, source_app, source_app_name, content_size, content_hash, is_favorited, created_at, updated_at
-             FROM clipboard_items WHERE id IN ({}) AND content_type = ? ORDER BY updated_at DESC",
-            placeholders
+             FROM clipboard_items WHERE id IN ({}) AND content_type = ?{} ORDER BY updated_at DESC",
+            placeholders, fav_filter
         )
     } else {
         format!(
             "SELECT id, content_type, plain_text, image_path, file_path, file_name, source_app, source_app_name, content_size, content_hash, is_favorited, created_at, updated_at
-             FROM clipboard_items WHERE id IN ({}) ORDER BY updated_at DESC",
-            placeholders
+             FROM clipboard_items WHERE id IN ({}){} ORDER BY updated_at DESC",
+            placeholders, fav_filter
         )
     };
 
@@ -373,6 +379,7 @@ async fn search_items_like(
     query: &str,
     content_type: Option<&str>,
     limit: i64,
+    favorites_only: bool,
 ) -> Result<Vec<ClipboardItem>, sqlx::Error> {
     let tokens: Vec<&str> = query.split_whitespace().filter(|t| !t.is_empty()).collect();
     if tokens.is_empty() {
@@ -388,18 +395,23 @@ async fn search_items_like(
         binds.push(pattern);
     }
     let where_clause = conditions.join(" AND ");
+    let fav_filter = if favorites_only {
+        " AND is_favorited = 1"
+    } else {
+        ""
+    };
 
     let sql = if let Some(_ct) = content_type {
         format!(
             "SELECT id, content_type, plain_text, image_path, file_path, file_name, source_app, source_app_name, content_size, content_hash, is_favorited, created_at, updated_at
-             FROM clipboard_items WHERE {} AND content_type = ? ORDER BY updated_at DESC LIMIT ?",
-            where_clause
+             FROM clipboard_items WHERE {} AND content_type = ?{} ORDER BY updated_at DESC LIMIT ?",
+            where_clause, fav_filter
         )
     } else {
         format!(
             "SELECT id, content_type, plain_text, image_path, file_path, file_name, source_app, source_app_name, content_size, content_hash, is_favorited, created_at, updated_at
-             FROM clipboard_items WHERE {} ORDER BY updated_at DESC LIMIT ?",
-            where_clause
+             FROM clipboard_items WHERE {}{} ORDER BY updated_at DESC LIMIT ?",
+            where_clause, fav_filter
         )
     };
 

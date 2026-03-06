@@ -89,6 +89,7 @@ describe("useClipboardStore", () => {
       query: "Hello",
       contentType: undefined,
       limit: 200,
+      favoritesOnly: false,
     });
     expect(useClipboardStore.getState().items).toEqual(items);
   });

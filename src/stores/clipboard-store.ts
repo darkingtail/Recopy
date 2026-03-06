@@ -92,12 +92,13 @@ export const useClipboardStore = create<ClipboardState>((set, get) => {
       const requestToken = nextRequestToken();
       set({ loading: true });
       try {
-        const { filterType } = get();
+        const { filterType, viewMode } = get();
         const contentType: string | undefined = filterType === "all" ? undefined : filterType;
         const items = await invoke<ClipboardItem[]>("search_clipboard_items", {
           query,
           contentType,
           limit: 200,
+          favoritesOnly: viewMode === "pins",
         });
         if (!isLatestRequest(requestToken)) return;
         set({ items, loading: false });

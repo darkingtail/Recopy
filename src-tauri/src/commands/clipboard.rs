@@ -36,11 +36,12 @@ pub async fn search_clipboard_items(
     query: String,
     content_type: Option<String>,
     limit: Option<i64>,
+    favorites_only: Option<bool>,
 ) -> Result<Vec<ClipboardItem>, String> {
     let limit = limit.unwrap_or(50);
     let ct = content_type.as_deref();
 
-    queries::search_items(&db.0, &query, ct, limit)
+    queries::search_items(&db.0, &query, ct, limit, favorites_only.unwrap_or(false))
         .await
         .map_err(|e| e.to_string())
 }
