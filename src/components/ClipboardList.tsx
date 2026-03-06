@@ -98,9 +98,18 @@ export function ClipboardList() {
           <div
             className={`text-xs font-medium ${
               isVertical
-                ? "px-5 py-2 sticky top-0 z-10 bg-muted/50 backdrop-blur-md text-muted-foreground/80 border-b border-border/15"
+                ? "px-5 py-2 sticky top-0 z-10 bg-muted/50 backdrop-blur-md text-muted-foreground/80 border-b border-border/15 cursor-pointer select-none"
                 : "px-5 py-1 text-muted-foreground"
             }`}
+            onClick={
+              isVertical
+                ? (e) =>
+                    e.currentTarget.parentElement?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    })
+                : undefined
+            }
           >
             {t(group.label)}
           </div>
