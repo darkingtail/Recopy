@@ -103,7 +103,7 @@ export function ClipboardList() {
           }
         >
           <div
-            className={`text-xs font-medium text-muted-foreground px-1 ${isVertical ? "py-1.5" : "py-1"}`}
+            className={`text-xs font-medium text-muted-foreground px-1 ${isVertical ? "py-1.5 sticky top-0 z-10 bg-background/90 backdrop-blur-sm" : "py-1"}`}
           >
             {t(group.label)}
           </div>
