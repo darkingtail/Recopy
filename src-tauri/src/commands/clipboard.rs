@@ -512,6 +512,8 @@ pub async fn cleanup_orphan_images(app: &AppHandle) {
 
 /// Show the preview window with adaptive sizing based on content.
 /// Loads item detail from DB, calculates window size, stores in PreviewState.
+/// Preview position adapts to panel_position: above (bottom), below (top),
+/// right of (left), or left of (right) the main panel.
 #[tauri::command]
 pub async fn show_preview_window(
     app: AppHandle,
@@ -525,31 +527,60 @@ pub async fn show_preview_window(
 
     let detail = load_item_detail(&db, &id).await?;
 
-    // Calculate available space above the main panel for preview sizing
-    let (screen_w, available_h) = (|| -> Option<(f64, f64)> {
+    let panel_position = queries::get_setting(&db.0, "panel_position")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "bottom".to_string());
+
+    // Calculate available space for preview based on panel position
+    let gap = 24.0; // 8px gap + 16px margin
+    let (available_w, available_h) = (|| -> Option<(f64, f64)> {
         let preview_win = app.get_webview_window("preview")?;
         let monitor = preview_win.current_monitor().ok()??;
         let scale = monitor.scale_factor();
         let screen_w = monitor.size().width as f64 / scale;
+        let screen_h = monitor.size().height as f64 / scale;
+        let mon_x = monitor.position().x as f64 / scale;
         let mon_y = monitor.position().y as f64 / scale;
 
         let main_win = app.get_webview_window("main")?;
         let main_pos = main_win.outer_position().ok()?;
-        let panel_top_y = main_pos.y as f64 / scale;
+        let main_size = main_win.outer_size().ok()?;
+        let panel_x = main_pos.x as f64 / scale;
+        let panel_y = main_pos.y as f64 / scale;
+        let panel_w = main_size.width as f64 / scale;
+        let panel_h = main_size.height as f64 / scale;
 
-        // Available height = panel top - monitor top - margins (gap + top margin)
-        let available = panel_top_y - mon_y - 24.0; // 8px gap + 16px top margin
-        Some((screen_w, available))
+        match panel_position.as_str() {
+            "top" => {
+                let avail_h = (mon_y + screen_h) - (panel_y + panel_h) - gap;
+                Some((screen_w, avail_h))
+            }
+            "left" => {
+                let avail_w = (mon_x + screen_w) - (panel_x + panel_w) - gap;
+                Some((avail_w, screen_h - gap))
+            }
+            "right" => {
+                let avail_w = panel_x - mon_x - gap;
+                Some((avail_w, screen_h - gap))
+            }
+            _ => {
+                // "bottom": space above panel
+                let avail_h = panel_y - mon_y - gap;
+                Some((screen_w, avail_h))
+            }
+        }
     })()
     .unwrap_or((1920.0, 800.0));
 
-    let (width, height) = calculate_preview_size(&detail, screen_w, available_h);
+    let (width, height) = calculate_preview_size(&detail, available_w, available_h);
 
     // Store in state so PreviewPage can poll via get_current_preview
     *preview_state.0.lock().unwrap() = Some(detail);
 
-    // Show window with adaptive size
-    crate::show_preview_window_impl(&app, width, height);
+    // Show window with adaptive size and position
+    crate::show_preview_window_impl(&app, width, height, &panel_position);
 
     Ok(())
 }
@@ -605,8 +636,8 @@ pub async fn animate_close_preview(
 }
 
 /// Calculate adaptive window size based on content type and available space.
-/// `available_h` = space above the main panel (preview lives above the panel).
-fn calculate_preview_size(detail: &ItemDetail, screen_w: f64, available_h: f64) -> (f64, f64) {
+/// `available_w` / `available_h` = space adjacent to the main panel where preview appears.
+fn calculate_preview_size(detail: &ItemDetail, available_w: f64, available_h: f64) -> (f64, f64) {
     // Image/file layout: title bar (py-1.5*2 + text ≈ 28) + bottom padding pb-2 (8)
     let img_chrome_y = 36.0; // title bar + bottom pad
     let img_chrome_x = 16.0; // px-2 left + right = 8*2
@@ -615,7 +646,7 @@ fn calculate_preview_size(detail: &ItemDetail, screen_w: f64, available_h: f64) 
     let content_width = 600.0;
     let line_height = 22.0; // matches text-sm leading-relaxed
     let min_h = 240.0;
-    let max_w = screen_w * 0.7;
+    let max_w = available_w * 0.7;
     let max_h = available_h.max(min_h);
 
     /// Scale image to fit max bounds (Quick Look style).

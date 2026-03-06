@@ -210,7 +210,7 @@ function MainApp() {
         )}
 
         {/* Content */}
-        <div className="flex-1 min-h-0 pb-1">
+        <div className={`flex-1 min-h-0 pb-1 ${isTop ? "pt-2" : ""}`}>
           <ClipboardList />
         </div>
       </div>

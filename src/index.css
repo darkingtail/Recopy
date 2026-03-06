@@ -137,7 +137,7 @@ html[data-theme="dark"] {
 .preview-content {
   opacity: 0;
   transform: scale(0.75);
-  transform-origin: center bottom;
+  transform-origin: var(--preview-origin, center bottom);
 }
 
 .preview-enter {
@@ -383,6 +383,7 @@ html, body {
   margin: 0;
   padding: 0;
   overflow: hidden;
+  overscroll-behavior: none;
   user-select: none;
   -webkit-user-select: none;
 }

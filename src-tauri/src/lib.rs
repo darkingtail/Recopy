@@ -310,8 +310,14 @@ pub fn hide_main_window(app: &tauri::AppHandle) {
 }
 
 /// Show the preview window with adaptive sizing (pre-created at startup).
-/// Positions the preview centered above the main panel, not centered on screen.
-pub fn show_preview_window_impl(app: &tauri::AppHandle, width: f64, height: f64) {
+/// Positions the preview adjacent to the main panel based on `panel_position`:
+/// bottom → above, top → below, left → right of, right → left of.
+pub fn show_preview_window_impl(
+    app: &tauri::AppHandle,
+    width: f64,
+    height: f64,
+    panel_position: &str,
+) {
     let Some(window) = app.get_webview_window("preview") else {
         return;
     };
@@ -326,20 +332,54 @@ pub fn show_preview_window_impl(app: &tauri::AppHandle, width: f64, height: f64)
         }
     }
 
-    // Position above the main panel, horizontally centered on screen
+    // Set CSS animation transform-origin to scale toward the panel edge
+    let origin = match panel_position {
+        "top" => "center top",
+        "left" => "left center",
+        "right" => "right center",
+        _ => "center bottom",
+    };
+    let _ = window.eval(&format!(
+        "document.documentElement.style.setProperty('--preview-origin','{}')",
+        origin
+    ));
+
+    // Position adjacent to the main panel
+    let gap = 8.0;
     let positioned = (|| -> Option<()> {
         let monitor = window.current_monitor().ok()??;
         let scale = monitor.scale_factor();
         let screen_w = monitor.size().width as f64 / scale;
+        let screen_h = monitor.size().height as f64 / scale;
         let mon_x = monitor.position().x as f64 / scale;
+        let mon_y = monitor.position().y as f64 / scale;
 
         let main_win = app.get_webview_window("main")?;
         let main_pos = main_win.outer_position().ok()?;
-        let panel_top_y = main_pos.y as f64 / scale;
+        let main_size = main_win.outer_size().ok()?;
+        let panel_x = main_pos.x as f64 / scale;
+        let panel_y = main_pos.y as f64 / scale;
+        let panel_w = main_size.width as f64 / scale;
+        let panel_h = main_size.height as f64 / scale;
 
-        let gap = 8.0;
-        let x = mon_x + (screen_w - width) / 2.0;
-        let y = panel_top_y - height - gap;
+        let (x, y) = match panel_position {
+            "top" => {
+                // Below the panel, centered horizontally
+                (mon_x + (screen_w - width) / 2.0, panel_y + panel_h + gap)
+            }
+            "left" => {
+                // Right of the panel, centered vertically
+                (panel_x + panel_w + gap, mon_y + (screen_h - height) / 2.0)
+            }
+            "right" => {
+                // Left of the panel, centered vertically
+                (panel_x - width - gap, mon_y + (screen_h - height) / 2.0)
+            }
+            _ => {
+                // "bottom": above the panel, centered horizontally
+                (mon_x + (screen_w - width) / 2.0, panel_y - height - gap)
+            }
+        };
 
         let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(x, y)));
         Some(())
