@@ -167,6 +167,19 @@ fn is_hook_active() -> bool {
     HOOK_HANDLE.load(Ordering::SeqCst) != 0
 }
 
+/// Check if the current foreground window belongs to the Recopy process.
+fn is_recopy_foreground() -> bool {
+    unsafe {
+        let fg = win32::GetForegroundWindow();
+        if fg == 0 {
+            return false;
+        }
+        let mut fg_pid: u32 = 0;
+        win32::GetWindowThreadProcessId(fg, &mut fg_pid);
+        fg_pid == win32::GetCurrentProcessId()
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Platform API (same interface as macos.rs / fallback.rs)
 // ---------------------------------------------------------------------------
@@ -211,6 +224,10 @@ pub fn platform_show_window(app: &tauri::AppHandle, _panel_position: &str) {
 
 pub fn platform_hide_window(app: &tauri::AppHandle) {
     remove_keyboard_hook();
+    // Only restore the previous foreground window if Recopy currently owns it.
+    // If the user Alt-Tab'd away (triggering close_on_blur), the current
+    // foreground is already their chosen target — don't override it.
+    let should_restore = is_recopy_foreground();
     if let Some(window) = app.get_webview_window("main") {
         if let Some(hwnd) = get_hwnd(&window) {
             unsafe {
@@ -220,7 +237,9 @@ pub fn platform_hide_window(app: &tauri::AppHandle) {
         // Also tell Tauri so its internal state stays consistent
         let _ = window.hide();
     }
-    restore_foreground();
+    if should_restore {
+        restore_foreground();
+    }
 }
 
 pub fn platform_is_visible(app: &tauri::AppHandle) -> bool {
@@ -232,10 +251,29 @@ pub fn platform_is_visible(app: &tauri::AppHandle) -> bool {
     false
 }
 
-/// Before paste: remove the keyboard hook so subsequent SendInput Ctrl+V
-/// reaches the still-foreground previous app (we never stole focus).
-pub fn platform_resign_before_paste(_app: &tauri::AppHandle) {
-    remove_keyboard_hook();
+/// Before paste: ensure the previous app is the foreground window so that
+/// SendInput Ctrl+V reaches it.
+/// - Floating mode (hook active): just remove the hook — previous app is
+///   already foreground since we never stole focus.
+/// - Activated mode (user clicked / Ctrl+F): Recopy owns the foreground,
+///   so we must hide and restore the previous app first.
+pub fn platform_resign_before_paste(app: &tauri::AppHandle) {
+    if is_hook_active() {
+        // Floating mode: previous app is still foreground, just drop the hook.
+        remove_keyboard_hook();
+    } else {
+        // Activated mode: Recopy is foreground → hide + restore previous app.
+        remove_keyboard_hook();
+        if let Some(window) = app.get_webview_window("main") {
+            if let Some(hwnd) = get_hwnd(&window) {
+                unsafe {
+                    win32::ShowWindow(hwnd, win32::SW_HIDE);
+                }
+            }
+            let _ = window.hide();
+        }
+        restore_foreground();
+    }
 }
 
 /// Called from the `Focused(true)` handler when the user clicks on Recopy.
