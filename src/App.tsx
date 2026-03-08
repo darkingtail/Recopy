@@ -239,8 +239,8 @@ function HudApp() {
   return (
     <div className="h-screen w-screen flex items-center justify-center">
       <div className="flex flex-col items-center justify-center">
-        <Check className="text-white drop-shadow-lg" size={52} strokeWidth={2.5} />
-        <span className="text-white text-xl font-semibold mt-2 drop-shadow-lg">
+        <Check className="text-foreground drop-shadow-lg" size={52} strokeWidth={2.5} />
+        <span className="text-foreground text-xl font-semibold mt-2 drop-shadow-lg">
           {t("context.copied")}
         </span>
       </div>
