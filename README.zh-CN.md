@@ -62,11 +62,11 @@ brew upgrade --cask recopy
 - **空格预览** — 按空格键预览任意条目，Finder 风格缩放动画
 - **灵活布局** — 面板可停靠在屏幕任意边缘（下/上/左/右），适配你的工作流
 - **智能去重** — SHA-256 哈希自动去重，重复内容自动置顶
-- **全文搜索** — FTS5 + trigram 分词，中英文模糊搜索
+- **全文搜索** — FTS5 + trigram 分词，多关键词 AND 组合匹配，中英文模糊搜索
 - **链接识别** — 自动识别 URL 并显示专属卡片，`Cmd+Click` 可在浏览器打开
 - **输入法友好** — 搜索栏正确处理中文输入法组合输入
 - **收藏夹** — 置顶常用条目，快速访问
-- **不抢焦点** — macOS 使用 NSPanel，面板不会抢走前台应用的焦点
+- **不抢焦点** — macOS 使用 NSPanel，Windows 使用键盘钩子——面板不会抢走前台应用的焦点
 - **复制反馈** — 毛玻璃 HUD 提示，复制操作一目了然
 - **自动更新** — 内置更新检查，应用内下载，一键重启升级
 - **丰富设置** — 主题、语言、快捷键、面板位置、开机启动、保留策略
@@ -84,6 +84,7 @@ brew upgrade --cask recopy
 | `Cmd+C` | 复制到剪贴板（显示 HUD 反馈） |
 | `Cmd+F` | 聚焦搜索框 |
 | `Cmd+,` | 打开设置 |
+| `Delete` / `Backspace` | 删除选中条目 |
 | `Escape` | 关闭面板 / 退出搜索 |
 
 ## 设置
@@ -106,7 +107,7 @@ brew upgrade --cask recopy
 | 状态管理 | Zustand |
 | UI 组件 | Radix UI + Lucide Icons |
 | 国际化 | react-i18next |
-| 平台适配 | NSPanel（macOS）、虚拟滚动（@tanstack/react-virtual） |
+| 平台适配 | NSPanel（macOS）、键盘钩子（Windows）、虚拟滚动（@tanstack/react-virtual） |
 
 ## 快速开始
 
@@ -159,17 +160,25 @@ Recopy
 │       ├── commands/     # Tauri IPC 命令（CRUD、粘贴、设置、快捷键）
 │       ├── db/           # SQLite 模型、查询、迁移
 │       ├── clipboard/    # 哈希、缩略图（异步生成）、图片存储
-│       └── platform/     # macOS NSPanel + HUD / Windows 兜底
+│       └── platform/     # macOS NSPanel + HUD / Windows 非激活窗口 + 键盘钩子
 └── website/              # 官网落地页
 ```
 
 ### 粘贴流程
 
+**macOS：**
 1. 用户按下 Enter 选择一条剪贴板记录
 2. Rust 将内容写入系统剪贴板
 3. NSPanel 放弃 key window（焦点回到前台应用）
 4. `osascript` 模拟 Cmd+V，延迟 50ms
 5. 面板隐藏 — 内容无缝粘贴到目标应用
+
+**Windows：**
+1. 用户按下 Enter 选择一条剪贴板记录
+2. Rust 将内容写入系统剪贴板
+3. 窗口隐藏，恢复前台应用焦点
+4. `SendInput` 模拟 Ctrl+V，延迟 50ms
+5. 内容粘贴到仍保持焦点的目标应用
 
 ## 许可证
 

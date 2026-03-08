@@ -62,11 +62,11 @@ Download the latest `.dmg` or `.exe` from the [Releases](https://github.com/shiq
 - **Quick Look preview** — Press Space to preview any item with Finder-style zoom animation
 - **Flexible layout** — Panel docks to any screen edge (bottom/top/left/right), adapts to your workflow
 - **Smart dedup** — SHA-256 hash prevents duplicate entries, bumps latest to top
-- **Full-text search** — FTS5 with trigram tokenizer for Chinese/English fuzzy search
+- **Full-text search** — FTS5 with trigram tokenizer, multi-keyword AND matching, Chinese/English fuzzy search
 - **Link detection** — URLs auto-recognized with dedicated cards, `Cmd+Click` to open in browser
 - **IME friendly** — Search works correctly with Chinese input methods (composition-aware)
 - **Favorites** — Pin frequently used items for quick access
-- **Non-activating panel** — NSPanel on macOS, never steals focus from your active app
+- **Non-activating panel** — NSPanel on macOS, keyboard hook on Windows — never steals focus from your active app
 - **Copy HUD** — Frosted glass feedback overlay when copying to clipboard
 - **Auto-update** — Built-in update checker with in-app download and one-click restart
 - **Configurable** — Theme, language, shortcut, panel position, auto-start, retention policy
@@ -84,6 +84,7 @@ Download the latest `.dmg` or `.exe` from the [Releases](https://github.com/shiq
 | `Cmd+C` | Copy to clipboard (with HUD feedback) |
 | `Cmd+F` | Focus search |
 | `Cmd+,` | Open settings |
+| `Delete` / `Backspace` | Delete selected item |
 | `Escape` | Close panel / blur search |
 
 ## Settings
@@ -106,7 +107,7 @@ Open settings via the gear icon in the panel header, tray menu, or `Cmd+,`.
 | State | Zustand |
 | UI | Radix UI + Lucide Icons |
 | i18n | react-i18next |
-| Platform | NSPanel (macOS), virtual scrolling (@tanstack/react-virtual) |
+| Platform | NSPanel (macOS), keyboard hook (Windows), virtual scrolling (@tanstack/react-virtual) |
 
 ## Getting Started
 
@@ -159,17 +160,25 @@ Recopy
 │       ├── commands/     # Tauri IPC commands (CRUD, paste, settings, shortcuts)
 │       ├── db/           # SQLite models, queries, migrations
 │       ├── clipboard/    # Hashing, thumbnails (async), image storage
-│       └── platform/     # macOS NSPanel + HUD / Windows fallback
+│       └── platform/     # macOS NSPanel + HUD / Windows non-activating window + keyboard hook
 └── website/              # Landing page
 ```
 
 ### Paste Flow
 
+**macOS:**
 1. User presses Enter on a clipboard item
 2. Rust writes content to system clipboard
 3. NSPanel resigns key window (returns focus to previous app)
 4. `osascript` simulates Cmd+V with 50ms delay
 5. Panel hides — user sees content pasted seamlessly
+
+**Windows:**
+1. User presses Enter on a clipboard item
+2. Rust writes content to system clipboard
+3. Window hides and restores previous foreground app
+4. `SendInput` simulates Ctrl+V with 50ms delay
+5. Content pasted into the still-focused app
 
 ## License
 
