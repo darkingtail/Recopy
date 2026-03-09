@@ -690,7 +690,22 @@ fn setup_blur_hide(app: &tauri::AppHandle) {
         // windows (non-activating window never fires Focused(false) on its own).
         let app_click = app.clone();
         app.listen("platform-click-outside", move |_| {
-            hide_main_window(&app_click);
+            let app_inner = app_click.clone();
+            tauri::async_runtime::spawn(async move {
+                let should_hide = if let Some(pool) = app_inner.try_state::<db::DbPool>() {
+                    db::queries::get_setting(&pool.0, "close_on_blur")
+                        .await
+                        .ok()
+                        .flatten()
+                        .map(|v| v != "false")
+                        .unwrap_or(true)
+                } else {
+                    true
+                };
+                if should_hide {
+                    hide_main_window(&app_inner);
+                }
+            });
         });
     }
 }
